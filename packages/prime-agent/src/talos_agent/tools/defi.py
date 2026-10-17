@@ -79,13 +79,6 @@ async def request_defi_loan(
         repayment_address=repayment_address,
     )
     
-    # Record as spending for budget tracking
-    _db.record_spending(
-        amount=amount,
-        category="defi_loan",
-        description=f"Loan from {platform}: {purpose}",
-    )
-    
     return {
         "status": "requested",
         "loan_id": loan_id,
@@ -159,6 +152,11 @@ async def repay_loan(loan_id: int, amount: float | None = None) -> dict:
     
     # Process repayment
     _db.record_repayment(loan_id, amount)
+    _db.record_spending(
+        amount=amount,
+        category="defi_repayment",
+        description=f"Repayment for loan {loan_id} ({loan['platform']})",
+    )
     
     return {
         "status": "repayment_recorded",
