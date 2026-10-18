@@ -5,6 +5,7 @@ import { tlsTalos, tlsPatrons, tlsActivities, tlsRevenues } from "@/db/schema";
 import { and, desc, eq, sql } from "drizzle-orm";
 import { badRequest, internalError } from "@/lib/api-response";
 import { parseLimit, LEADERBOARD_DEFAULT_LIMIT, LEADERBOARD_MAX_LIMIT, MAX_CURSOR_LENGTH } from "@/lib/limits";
+import { applyPublicCacheHeaders } from "@/lib/cache-headers";
 
 // GET /api/leaderboard — Ranking data with cursor-based pagination
 async function _GET(request: NextRequest) {
@@ -122,7 +123,8 @@ revenueSum.total}, 0)`,
           ).toString("base64")
         : null;
 
-    return Response.json({ data, nextCursor });
+    const response = Response.json({ data, nextCursor });
+    return applyPublicCacheHeaders(response, request);
   } catch {
     return internalError(request);
   }

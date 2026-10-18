@@ -5,6 +5,7 @@ import { tlsApprovals, tlsTalos } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
 import { internalError } from "@/lib/api-response";
 import { parseAnalyticsLimit } from "@/lib/analytics-limits";
+import { applyPublicCacheHeaders } from "@/lib/cache-headers";
 
 // GET /api/proposals — All proposals across all Talos, newest first
 // Optional ?status=pending|approved|rejected filter, optional ?limit=1..100 (default 50)
@@ -37,7 +38,8 @@ async function _GET(request: NextRequest) {
       .orderBy(desc(tlsApprovals.createdAt))
       .limit(limit);
 
-    return Response.json(rows);
+    const response = Response.json(rows);
+    return applyPublicCacheHeaders(response, request);
   } catch {
     return internalError(request);
   }
