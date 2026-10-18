@@ -36,7 +36,7 @@ async function _GET(request: NextRequest) {
     const revenueSum = db
       .select({
         talosId: tlsRevenues.talosId,
-        total: sql<number>`coalesce(sum(${tlsRevenues.amount}), 0)::float`.as("revenueTotal"),
+        total: sql<string>`coalesce(sum(${tlsRevenues.amount}), 0)::text`.as("revenueTotal"),
       })
       .from(tlsRevenues)
       .groupBy(tlsRevenues.talosId)
@@ -44,7 +44,7 @@ async function _GET(request: NextRequest) {
 
     const conditions: ReturnType<typeof sql>[] = [];
 
-    let parsedCursor: [number, string] | null = null;
+    let parsedCursor: [string, string] | null = null;
     if (cursor) {
       if (cursor.length > MAX_CURSOR_LENGTH) {
         return badRequest(request, "Invalid cursor");
@@ -54,10 +54,14 @@ async function _GET(request: NextRequest) {
         if (
           Array.isArray(decoded) &&
           decoded.length === 2 &&
-          typeof decoded[0] === "number" &&
+          (typeof decoded[0] === "string" || typeof decoded[0] === "number") &&
           typeof decoded[1] === "string"
         ) {
-          parsedCursor = decoded as [number, string];
+          const revStr = String(decoded[0]).trim();
+          if (!revStr || isNaN(Number(revStr))) {
+            return badRequest(request, "Invalid cursor revenue");
+          }
+          parsedCursor = [revStr, decoded[1]];
         } else {
           return badRequest(request, "Invalid cursor format");
         }
@@ -69,10 +73,8 @@ async function _GET(request: NextRequest) {
     if (parsedCursor) {
       const [cursorRevenue, cursorId] = parsedCursor;
       conditions.push(
-        sql`coalesce(${
-revenueSum.total}, 0) < ${
-cursorRevenue}
-            OR (coalesce(${revenueSum.total}, 0) = ${cursorRevenue}
+        sql`coalesce(${revenueSum.total}, '0')::numeric < ${cursorRevenue}::numeric
+            OR (coalesce(${revenueSum.total}, '0')::numeric = ${cursorRevenue}::numeric
                 AND ${tlsTalos.id} < ${cursorId})`,
       );
     }
@@ -87,21 +89,20 @@ cursorRevenue}
         totalSupply: tlsTalos.totalSupply,
         patronCount: patronCount.count,
         activityCount: activityCount.count,
-        totalRevenue: sql<number>`coalesce(${
-revenueSum.total}, 0)`,
+        totalRevenue: sql<string>`coalesce(${revenueSum.total}, '0')`,
       })
       .from(tlsTalos)
       .leftJoin(patronCount, eq(tlsTalos.id, patronCount.talosId))
       .leftJoin(activityCount, eq(tlsTalos.id, activityCount.talosId))
       .leftJoin(revenueSum, eq(tlsTalos.id, revenueSum.talosId))
       .where(conditions.length > 0 ? and(...conditions) : undefined)
-      .orderBy(sql`coalesce(${revenueSum.total}, 0) desc`, desc(tlsTalos.id))
+      .orderBy(sql`coalesce(${revenueSum.total}, '0')::numeric desc`, desc(tlsTalos.id))
       .limit(limit + 1);
 
     const hasMore = rows.length > limit;
     const page = hasMore ? rows.slice(0, limit) : rows;
 
-    const data = page.map((c) =>({
+    const data = page.map((c) => ({
       id: c.id,
       name: c.name,
       category: c.category,
@@ -110,7 +111,7 @@ revenueSum.total}, 0)`,
       totalSupply: c.totalSupply,
       patronCount: c.patronCount ?? 0,
       activityCount: c.activityCount ?? 0,
-      totalRevenue: c.totalRevenue ?? 0,
+      totalRevenue: Number(c.totalRevenue ?? "0"),
       marketCap: Number(c.pulsePrice) * c.totalSupply,
     }));
 
@@ -118,7 +119,7 @@ revenueSum.total}, 0)`,
     const nextCursor =
       hasMore && lastItem
         ? Buffer.from(
-            JSON.stringify([lastItem.totalRevenue, lastItem.id]),
+            JSON.stringify([String(lastItem.totalRevenue ?? "0"), lastItem.id]),
           ).toString("base64")
         : null;
 
