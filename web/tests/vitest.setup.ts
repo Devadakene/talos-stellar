@@ -1,2 +1,2 @@
-import "@testing-library/jest-dom/vitest";
 import "./setup-jsdom";
+import "@testing-library/jest-dom/vitest";
