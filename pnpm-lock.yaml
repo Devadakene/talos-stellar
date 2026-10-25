@@ -10243,6 +10243,21 @@ snapshots:
 
   axe-core@4.14.0: {}
 
+  axios-retry@4.5.0(axios@1.13.6):
+    dependencies:
+      axios: 1.13.6
+      is-retry-allowed: 2.2.0
+    optional: true
+
+  axios@1.13.6:
+    dependencies:
+      follow-redirects: 1.16.0
+      form-data: 4.0.5
+      proxy-from-env: 1.1.0
+    transitivePeerDependencies:
+      - debug
+    optional: true
+
   axios-retry@4.5.0(axios@1.13.6(debug@4.4.3(supports-color@10.2.2))):
     dependencies:
       axios: 1.13.6(debug@4.4.3(supports-color@10.2.2))
